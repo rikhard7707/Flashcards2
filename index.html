@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcards2 Editável</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  body { font-family: sans-serif; text-align: center; background: #f0f0f0; padding: 20px; overflow-x: hidden; }
+  #card { background: white; padding: 20px; margin: 20px auto; width: 100%; max-width: 360px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer; min-height: 60px; word-wrap: break-word; }
+  select, button, input { margin: 5px; padding: 8px; font-size: 14px; max-width: 90%; }
+  button { border-radius: 6px; }
+  #editor { margin-top: 20px; }
+  footer { margin-top: 30px; font-size: 12px; color: #555; }
+</style>
+</head>
+<body>
+
+<h2>📚 Flashcards2</h2>
+
+<select id="deckSelect"></select>
+<button onclick="newDeck()">+ Nova Matéria</button>
+<button onclick="deleteCurrentDeck()">🗑️ Apagar Matéria</button>
+<button onclick="deleteCurrentCard()">🗑️ Apagar Carta</button>
+
+<div id="card">Clique para ver a resposta</div>
+<button onclick="prevCard()">⬅️ Anterior</button>
+<button onclick="nextCard()">Próximo ➡️</button>
+
+<div id="editor">
+  <h3>Adicionar nova carta</h3>
+  <input type="text" id="frontInput" placeholder="Frente (pergunta)">
+  <input type="text" id="backInput" placeholder="Verso (resposta)">
+  <button onclick="addCard()">Adicionar</button>
+</div>
+
+<footer>Autor: Ricardo A. Ataide</footer>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+    .then(() => console.log('Service Worker registrado!'))
+    .catch(error => console.log('Falha ao registrar Service Worker:', error));
+}
+
+let decks = JSON.parse(localStorage.getItem('decks')) || {}; 
+let currentDeckName = null;
+let currentDeck = [];
+let currentIndex = 0;
+let showingFront = true;
+
+const deckSelectEl = document.getElementById('deckSelect');
+const cardEl = document.getElementById('card');
+
+function saveDecks() { localStorage.setItem('decks', JSON.stringify(decks)); }
+function updateDeckSelect() {
+  deckSelectEl.innerHTML = '';
+  for (const name in decks) {
+    const option = document.createElement('option');
+    option.value = name; option.textContent = name;
+    deckSelectEl.appendChild(option);
+  }
+}
+function loadDeck(name) { currentDeckName = name; currentDeck = decks[name]; currentIndex = 0; showingFront = true; showCard(); }
+function showCard() {
+  cardEl.textContent = currentDeck.length === 0 ? "(Nenhuma carta)" : (showingFront ? currentDeck[currentIndex].front : currentDeck[currentIndex].back);
+}
+function nextCard() { if (currentDeck.length === 0) return; currentIndex = (currentIndex+1)%currentDeck.length; showingFront = true; showCard(); }
+function prevCard() { if (currentDeck.length === 0) return; currentIndex = (currentIndex-1+currentDeck.length)%currentDeck.length; showingFront = true; showCard(); }
+cardEl.addEventListener('click', () => { if (currentDeck.length === 0) return; showingFront = !showingFront; showCard(); });
+deckSelectEl.addEventListener('change', () => loadDeck(deckSelectEl.value));
+function newDeck() {
+  const name = prompt("Nome da nova matéria:"); if (!name) return;
+  if (decks[name]) { alert("Já existe um baralho com esse nome."); return; }
+  decks[name]=[]; saveDecks(); updateDeckSelect(); deckSelectEl.value=name; loadDeck(name);
+}
+function addCard() {
+  const front = document.getElementById('frontInput').value.trim();
+  const back = document.getElementById('backInput').value.trim();
+  if (!front || !back) { alert("Preencha frente e verso."); return; }
+  decks[currentDeckName].push({front, back}); saveDecks(); document.getElementById('frontInput').value=''; document.getElementById('backInput').value=''; currentIndex=currentDeck.length-1; showingFront=true; showCard();
+}
+function deleteCurrentCard() {
+  if (currentDeck.length===0) return;
+  if (!confirm("Tem certeza que deseja apagar esta carta?")) return;
+  decks[currentDeckName].splice(currentIndex,1); saveDecks(); currentDeck=decks[currentDeckName];
+  if (currentIndex>=currentDeck.length) currentIndex=currentDeck.length-1; showingFront=true; showCard();
+}
+function deleteCurrentDeck() {
+  if (!confirm("Tem certeza que deseja apagar a matéria inteira?")) return;
+  delete decks[currentDeckName]; saveDecks(); updateDeckSelect();
+  const keys=Object.keys(decks);
+  if (keys.length>0){ deckSelectEl.value=keys[0]; loadDeck(keys[0]); } else { currentDeckName=null; currentDeck=[]; cardEl.textContent="(Nenhum baralho)"; }
+}
+(function(){
+  if (Object.keys(decks).length===0){ decks["Exemplo"]=[{front:"O que é HTML?",back:"Uma linguagem de marcação"}]; saveDecks();}
+  updateDeckSelect(); deckSelectEl.value=Object.keys(decks)[0]; loadDeck(deckSelectEl.value);
+})();
+</script>
+</body>
+</html>
